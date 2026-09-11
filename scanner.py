@@ -1,4 +1,5 @@
 import time
+from oui import get_fabricante, load_oui
 from scapy.all import Ether, ARP, srp, conf, get_working_ifaces
 from device import Device
 
@@ -8,6 +9,7 @@ class Scanner:
         self.modo_iface = modo_iface
         self.interface = self._selecionar_interface()
         self.historico_dispositivos: dict[str, Device] = {}
+        self.oui_db = load_oui()
 
     def _selecionar_interface(self):
         """Seleciona a interface de rede física descartando interfaces virtuais."""
@@ -41,7 +43,7 @@ class Scanner:
             ip = resposta.psrc
             mac = resposta.hwsrc.lower()
 
-            novo_dispositivo = Device(ip=ip, mac=mac)
+            novo_dispositivo = Device(ip=ip, mac=mac, fabricante=get_fabricante(mac, self.oui_db))
             dispositivos.append(novo_dispositivo)
 
         return dispositivos
@@ -101,9 +103,9 @@ class Scanner:
             print("fim")
 
     def _imprimir_relatorio(self):
-        print("\n" + "="*50)
-        print(f"{'IP':<16} | {'MAC':<18} | {'STATUS':<12}")
-        print("="*50)
+        print("\n" + "="*120)
+        print(f" {'TIPO':<9} | {'IP':<16} | {'MAC':<18} | {'STATUS':<12} | {'FABRICANTE':<30} | {'HORA DA DESCOBERTA':<18}")
+        print("="*120)
         for dev in self.historico_dispositivos.values():
-            print(f"{dev.ip:<16} | {dev.mac:<18} | {dev.status_nome():<12}")
-        print("="*50 + "\n")
+            print(f"{dev.tipo:<9} | {dev.ip:<16} | {dev.mac:<18} | {dev.status_nome():<12} | {dev.fabricante:<30} | {dev.descoberta.strftime('%H:%M:%S'):<18}")
+        print("="*120 + "\n")
