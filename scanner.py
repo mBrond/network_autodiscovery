@@ -10,6 +10,7 @@ class Scanner:
         self.interface = self._selecionar_interface()
         self.historico_dispositivos: dict[str, Device] = {}
         self.oui_db = load_oui()
+        self.gateway = self.get_gateway()
 
     def _selecionar_interface(self):
         """Seleciona a interface de rede física descartando interfaces virtuais."""
@@ -42,8 +43,8 @@ class Scanner:
         for _, resposta in respostas:
             ip = resposta.psrc
             mac = resposta.hwsrc.lower()
-
-            novo_dispositivo = Device(ip=ip, mac=mac, fabricante=get_fabricante(mac, self.oui_db))
+            tipo = "Router" if ip == self.gateway else "Host"
+            novo_dispositivo = Device(ip=ip, mac=mac, fabricante=get_fabricante(mac, self.oui_db), tipo=tipo)
             dispositivos.append(novo_dispositivo)
 
         return dispositivos
@@ -109,3 +110,8 @@ class Scanner:
         for dev in self.historico_dispositivos.values():
             print(f"{dev.tipo:<9} | {dev.ip:<16} | {dev.mac:<18} | {dev.status_nome():<12} | {dev.fabricante:<30} | {dev.descoberta.strftime('%H:%M:%S'):<18}")
         print("="*120 + "\n")
+
+    def get_gateway(self) -> str:
+        """Retorna o IP do gateway padrão da interface selecionada."""
+        _, _, gateway = conf.route.route("0.0.0.0")
+        return gateway
