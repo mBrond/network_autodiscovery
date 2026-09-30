@@ -1,0 +1,177 @@
+SNMP-SCANNER-MIB DEFINITIONS ::= BEGIN
+
+IMPORTS
+    experimental, Gauge, IpAddress
+        FROM RFC1155-SMI
+    DisplayString
+        FROM RFC1213-MIB
+    OBJECT-TYPE
+        FROM RFC-1212;
+
+snmpScanner OBJECT IDENTIFIER ::= { experimental 99 }
+
+
+scannerConfig OBJECT IDENTIFIER ::= { snmpScanner 1 }
+
+scannerTimeout OBJECT-TYPE
+    SYNTAX  INTEGER (1..2147483647)
+    ACCESS  read-only
+    STATUS  mandatory
+    DESCRIPTION
+            "Tempo maximo, em milissegundos, que o scanner aguarda as
+             respostas ARP de cada varredura. Valor constante: 5000
+             (timeout=5 segundos em srp(), Scanner.scan())."
+    ::= { scannerConfig 1 }
+
+scannerNetwork OBJECT-TYPE
+    SYNTAX  DisplayString (SIZE (0..64))
+    ACCESS  read-write
+    STATUS  mandatory
+    DESCRIPTION
+            "Sub-rede varrida, no formato REDE/MASCARA
+             (ex.: 192.168.0.0/24). Origem: Scanner.ip_rede."
+    ::= { scannerConfig 2 }
+
+scannerGateway OBJECT-TYPE
+    SYNTAX  IpAddress
+    ACCESS  read-only
+    STATUS  mandatory
+    DESCRIPTION
+            "Endereco IP do gateway padrao, usado para classificar um
+             dispositivo como router. Origem: Scanner.gateway."
+    ::= { scannerConfig 3 }
+
+scannerDeviceCount OBJECT-TYPE
+    SYNTAX  Gauge
+    ACCESS  read-only
+    STATUS  mandatory
+    DESCRIPTION
+            "Quantidade dedispositivos ja vistos (online e offline).
+            Origem: len(Scanner.historico_dispositivos)."
+    ::= { scannerConfig 4 }
+
+scannerClearHistory OBJECT-TYPE
+    SYNTAX  INTEGER {
+                clear(1)
+            }
+    ACCESS  write-only
+    STATUS  mandatory
+    DESCRIPTION
+            "Ao escrever o valor clear(1), o historico de dispositivos e
+             esvaziado."
+    ::= { scannerConfig 5 }
+
+-- ==========================================================
+-- Tabela de Dispositivos Escaneados
+-- Uma linha por item de Scanner.historico_dispositivos, que usa o MAC
+-- como chave.
+-- Dispositivos que deixam de responder continuam na tabela com
+-- scannerDeviceStatus off(1)
+-- ==========================================================
+scannerResultTable OBJECT-TYPE
+    SYNTAX  SEQUENCE OF ScannerResultEntry
+    ACCESS  not-accessible
+    STATUS  mandatory
+    DESCRIPTION
+            "Tabela dos dispositivos descobertos pelo scanner."
+    ::= { snmpScanner 2 }
+
+scannerResultEntry OBJECT-TYPE
+    SYNTAX  ScannerResultEntry
+    ACCESS  not-accessible
+    STATUS  mandatory
+    DESCRIPTION
+            "Entrada com as informacoes de um dispositivo descoberto.
+             A instancia de cada coluna e identificada pelo MAC"
+    INDEX   { scannerMacAddress }
+    ::= { scannerResultTable 1 }
+
+ScannerResultEntry ::= SEQUENCE {
+    scannerMacAddress       OCTET STRING,
+    scannerIpAddress        IpAddress,
+    scannerManufacturer     DisplayString,
+    scannerDeviceType       INTEGER,
+    scannerDeviceStatus     INTEGER,
+    scannerReturnCountdown  INTEGER,
+    scannerDiscoveryTime    DisplayString
+}
+
+scannerMacAddress OBJECT-TYPE
+    SYNTAX  OCTET STRING (SIZE (6))
+    ACCESS  read-only
+    STATUS  mandatory
+    DESCRIPTION
+            "Endereco MAC do dispositivo (6 octetos) e indice da linha.
+             Origem: Device.mac / chave de historico_dispositivos
+             (texto aa:bb:cc:dd:ee:ff, convertido para 6 bytes)."
+    ::= { scannerResultEntry 1 }
+
+scannerIpAddress OBJECT-TYPE
+    SYNTAX  IpAddress
+    ACCESS  read-only
+    STATUS  mandatory
+    DESCRIPTION
+            "Ultimo endereco IP conhecido do dispositivo. E atualizado
+             quando o IP muda (ex.: DHCP). Origem: Device.ip."
+    ::= { scannerResultEntry 2 }
+
+scannerManufacturer OBJECT-TYPE
+    SYNTAX  DisplayString (SIZE (0..255))
+    ACCESS  read-only
+    STATUS  mandatory
+    DESCRIPTION
+            "Fabricante obtido pelo OUI (3 primeiros octetos do MAC), ou
+             Desconhecido. Origem: Device.fabricante."
+    ::= { scannerResultEntry 3 }
+
+scannerDeviceType OBJECT-TYPE
+    SYNTAX  INTEGER {
+                host(1),
+                router(2)
+            }
+    ACCESS  read-only
+    STATUS  mandatory
+    DESCRIPTION
+            "Tipo do dispositivo, definido na primeira descoberta:
+             router(2) se o IP era igual a scannerGateway, senao host(1).
+             Origem: Device.tipo (Host / Router)."
+    ::= { scannerResultEntry 4 }
+
+scannerDeviceStatus OBJECT-TYPE
+    SYNTAX  INTEGER {
+                off(1),
+                on(2),
+                returned(3)
+            }
+    ACCESS  read-only
+    STATUS  mandatory
+    DESCRIPTION
+            "Estado do dispositivo. Origem: Device.status_nome().
+             off(1)      = nao respondeu na ultima varredura (status -1);
+             on(2)       = presente e estavel (status 0);
+             returned(3) = voltou apos ficar off e ainda esta em
+                           estabilizacao (status maior que 0)."
+    ::= { scannerResultEntry 5 }
+
+scannerReturnCountdown OBJECT-TYPE
+    SYNTAX  INTEGER (0..3)
+    ACCESS  read-only
+    STATUS  mandatory
+    DESCRIPTION
+            "Varreduras restantes para um dispositivo em returned(3)
+             voltar a on(2). Comeca em 3 quando o dispositivo reaparece
+             e diminui 1 a cada varredura em que responde. Vale 0 em
+             on(2) e off(1). Origem: max(Device.status, 0)."
+    ::= { scannerResultEntry 6 }
+
+scannerDiscoveryTime OBJECT-TYPE
+    SYNTAX  DisplayString (SIZE (19))
+    ACCESS  read-only
+    STATUS  mandatory
+    DESCRIPTION
+            "Data e hora da primeira descoberta do dispositivo, no
+             formato AAAA-MM-DD HH:MM:SS (hora local do scanner).
+             Origem: Device.descoberta."
+    ::= { scannerResultEntry 7 }
+
+END

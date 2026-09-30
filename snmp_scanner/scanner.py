@@ -1,7 +1,7 @@
 import time
-from oui import get_fabricante, load_oui
+from snmp_scanner.oui import get_fabricante, load_oui
 from scapy.all import Ether, ARP, srp, conf, get_working_ifaces
-from device import Device
+from snmp_scanner.device import Device
 
 class Scanner:
     def __init__(self, ip_rede: str = None, modo_iface: str = 'real'):
@@ -115,3 +115,7 @@ class Scanner:
         """Retorna o IP do gateway padrão da interface selecionada."""
         _, _, gateway = conf.route.route("0.0.0.0")
         return gateway
+
+    def _clear_historico(self):
+        """Limpa o histórico de dispositivos."""
+        self.historico_dispositivos.clear()

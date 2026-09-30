@@ -1,4 +1,4 @@
-from scanner import Scanner
+from snmp_scanner.scanner import Scanner
 import sys
 
 if __name__ == "__main__":
